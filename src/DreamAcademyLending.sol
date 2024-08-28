@@ -21,20 +21,20 @@ interface ILending {
 
 contract DreamAcademyLending is ILending {
     IPriceOracle internal _oracle;
-    ERC20 internal _usdc;
+    address internal _usdc;
 
     address constant NATIVE_ETH = address(0);
     mapping(address => uint256) internal _price;
 
     struct Collateral {
-        mapping(address => uint256) amount;
+        mapping(address => uint256) unlocked;
     }
 
     mapping(address => Collateral) internal _balances;
 
     modifier updateBalance(address token, int256 amount) {
         _;
-        mapping(address => uint256) storage owned = _balances[msg.sender].amount;
+        mapping(address => uint256) storage owned = _balances[msg.sender].unlocked;
         owned[token] = uint256(int256(owned[token]) + amount);
     }
 
@@ -46,7 +46,7 @@ contract DreamAcademyLending is ILending {
 
     constructor(IPriceOracle oracle, address usdc) {
         _oracle = oracle;
-        _usdc = ERC20(usdc);
+        _usdc = usdc;
     }
 
     function initializeLendingProtocol(address usdc) external payable override {
@@ -66,18 +66,20 @@ contract DreamAcademyLending is ILending {
     /// @dev
     /// Check-Effects-Interactions Pattern
     function borrow(address token, uint256 amount) external override updatePrice(token) {
-        mapping(address => uint256) storage owned = _balances[msg.sender].amount;
+        mapping(address => uint256) storage owned = _balances[msg.sender].unlocked;
 
         require(_price[token] * amount <= totalValueOwned());
 
         owned[token] = (owned[token] * _price[token] - amount * _price[NATIVE_ETH]) / _price[token];
 
+        owned[NATIVE_ETH] -= amount;
+
         require(ERC20(token).transferFrom(msg.sender, address(this), amount));
     }
 
     function totalValueOwned() internal view returns (uint256 totalValue) {
-        totalValue += _balances[msg.sender].amount[NATIVE_ETH];
-        totalValue += _balances[msg.sender].amount[NATIVE_ETH];
+        totalValue += _balances[msg.sender].unlocked[NATIVE_ETH] * _price[NATIVE_ETH];
+        totalValue += _balances[msg.sender].unlocked[_usdc] * _price[_usdc];
     }
 
     function repay(address usdc, uint256 amount) external override {}
