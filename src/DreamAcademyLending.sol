@@ -1,42 +1,45 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 interface IPriceOracle {
     function getPrice(string memory symbol) external view returns (uint256);
-
     function setPrice(address token, uint256 price) external;
 }
 
 interface ILending {
-    function initializeLendingProtocol(address _usdc) external payable;
-    function deposit(address _usdc, uint256 _amount) external payable;
-    function borrow(address _usdc, uint256 _amount) external;
-    function repay(address _usdc, uint256 _amount) external;
-    function withdraw(address _usdc, uint256 _amount) external;
-    function getAccruedSupplyAmount(address _usdc) external view returns (uint256);
-    function liquidate(address _usdc, address _borrower) external;
+    function initializeLendingProtocol(address usdc) external payable;
+    function deposit(address usdc, uint256 amount) external payable;
+    function borrow(address usdc, uint256 amount) external;
+    function repay(address usdc, uint256 amount) external;
+    function withdraw(address usdc, uint256 amount) external;
+    function getAccruedSupplyAmount(address usdc) external view returns (uint256);
+    function liquidate(address usdc, address borrower) external;
 }
 
 contract DreamAcademyLending is ILending {
-    IPriceOracle internal oracle;
-    address internal usdc;
+    IPriceOracle internal _oracle;
+    IERC20 internal _usdc;
 
-    constructor(IPriceOracle _oracle, address _usdc) {
-        oracle = _oracle;
-        usdc = _usdc;
+    constructor(IPriceOracle oracle, address usdc) {
+        _oracle = oracle;
+        _usdc = IERC20(usdc);
     }
 
-    function initializeLendingProtocol(address _usdc) external payable override {}
+    function initializeLendingProtocol(address usdc) external payable override {
+        // lending.initializeLendingProtocol{value: 1}(address(usdc)); // set reserve ^__^
+    }
 
-    function deposit(address _usdc, uint256 _amount) external payable override {}
+    function deposit(address usdc, uint256 amount) external payable override {}
 
-    function borrow(address _usdc, uint256 _amount) external override {}
+    function borrow(address usdc, uint256 amount) external override {}
 
-    function repay(address _usdc, uint256 _amount) external override {}
+    function repay(address usdc, uint256 amount) external override {}
 
-    function withdraw(address _usdc, uint256 _amount) external override {}
+    function withdraw(address usdc, uint256 amount) external override {}
 
-    function getAccruedSupplyAmount(address _usdc) external view override returns (uint256) {}
+    function getAccruedSupplyAmount(address usdc) external view override returns (uint256) {}
 
-    function liquidate(address _usdc, address _borrower) external override {}
+    function liquidate(address usdc, address borrower) external override {}
 }
