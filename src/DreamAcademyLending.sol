@@ -17,6 +17,7 @@ interface ILending {
     function getAccruedSupplyAmount(address token) external view returns (uint256);
     function liquidate(address token, address borrower) external;
 }
+/// 1 block 당 12sec 고정
 
 contract DreamAcademyLending is ILending {
     IPriceOracle internal _oracle;
@@ -73,9 +74,7 @@ contract DreamAcademyLending is ILending {
         uint256 valueNeededToBorrow = (valueToBorrow * OC_RATE) / 100;
         require(valueNeededToBorrow <= totalValueOwned());
 
-        emit Log(balance.owned[NATIVE_ETH]);
         balance.owned[NATIVE_ETH] -= valueNeededToBorrow / _price[NATIVE_ETH];
-        emit Log(balance.owned[NATIVE_ETH]);
 
         balance.owned[token] += valueToBorrow / _price[token];
         balance.locked[token] += valueNeededToBorrow - valueToBorrow;
@@ -90,7 +89,12 @@ contract DreamAcademyLending is ILending {
         // totalValue += _balances[msg.sender].owned[_usdc] * _price[_usdc];
     }
 
-    function repay(address usdc, uint256 amount) external override {}
+    // TODO block number를 이용한 이자 계산
+    function repay(address usdc, uint256 amount) external override {
+        _balances[msg.sender].locked[usdc] -= amount;
+        _balances[msg.sender].owned[NATIVE_ETH] += amount;
+        require(ERC20(usdc).transfer(msg.sender, amount));
+    }
 
     function withdraw(address token, uint256 amount) external override updateBalance(token, -int256(amount)) {
         require(_balances[msg.sender].owned[token] >= amount);
