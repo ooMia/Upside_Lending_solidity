@@ -4,8 +4,7 @@ pragma solidity ^0.8.20;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 interface IPriceOracle {
-    // price는 해당 토큰의 가치가 아니라,
-    function getPrice(string memory symbol) external view returns (uint256);
+    function getPrice(address token) external view returns (uint256);
     function setPrice(address token, uint256 price) external;
 }
 
@@ -24,23 +23,25 @@ contract DreamAcademyLending is ILending {
     address internal _usdc;
 
     address constant NATIVE_ETH = address(0);
+    uint256 constant OC_RATE = 200;
     mapping(address => uint256) internal _price;
 
     struct Collateral {
-        mapping(address => uint256) unlocked;
+        mapping(address => uint256) owned;
+        mapping(address => uint256) locked;
     }
 
     mapping(address => Collateral) internal _balances;
 
     modifier updateBalance(address token, int256 amount) {
         _;
-        mapping(address => uint256) storage owned = _balances[msg.sender].unlocked;
+        mapping(address => uint256) storage owned = _balances[msg.sender].owned;
         owned[token] = uint256(int256(owned[token]) + amount);
     }
 
     modifier updatePrice(address token) {
-        _price[token] = _oracle.getPrice(ERC20(token).symbol());
-        _price[NATIVE_ETH] = _oracle.getPrice("ETH");
+        _price[token] = _oracle.getPrice(token);
+        _price[NATIVE_ETH] = _oracle.getPrice(NATIVE_ETH);
         _;
     }
 
@@ -57,34 +58,43 @@ contract DreamAcademyLending is ILending {
     }
 
     function deposit(address token, uint256 amount) external payable override updateBalance(token, int256(amount)) {
-        if (msg.value >= amount) {
-            return;
+        if (msg.value >= amount) {} else {
+            require(ERC20(token).transferFrom(msg.sender, address(this), amount));
         }
-        require(ERC20(token).transferFrom(msg.sender, address(this), amount));
     }
 
-    /// @dev
-    /// Check-Effects-Interactions Pattern
+    /// @dev 맡겨둔 ETH를 담보로 USDC를 빌립니다.
+    /// 200%의 과담보율을 적용합니다. 예를 들어, 1000 USDC를 빌리려면 2000 USDC의 가치에 해당하는 ETH를 담보로 제공해야 합니다.
+    /// @param amount 빌릴 USDC의 양
     function borrow(address token, uint256 amount) external override updatePrice(token) {
-        mapping(address => uint256) storage owned = _balances[msg.sender].unlocked;
+        Collateral storage balance = _balances[msg.sender];
 
-        require(_price[token] * amount <= totalValueOwned());
+        uint256 valueToBorrow = amount * _price[token];
+        uint256 valueNeededToBorrow = (valueToBorrow * OC_RATE) / 100;
+        require(valueNeededToBorrow <= totalValueOwned());
 
-        owned[token] = (owned[token] * _price[token] - amount * _price[NATIVE_ETH]) / _price[token];
+        emit Log(balance.owned[NATIVE_ETH]);
+        balance.owned[NATIVE_ETH] -= valueNeededToBorrow / _price[NATIVE_ETH];
+        emit Log(balance.owned[NATIVE_ETH]);
 
-        owned[NATIVE_ETH] -= amount;
+        balance.owned[token] += valueToBorrow / _price[token];
+        balance.locked[token] += valueNeededToBorrow - valueToBorrow;
 
-        require(ERC20(token).transferFrom(msg.sender, address(this), amount));
+        require(ERC20(token).transfer(msg.sender, amount));
     }
+
+    event Log(uint256 value);
 
     function totalValueOwned() internal view returns (uint256 totalValue) {
-        totalValue += _balances[msg.sender].unlocked[NATIVE_ETH] * _price[NATIVE_ETH];
-        totalValue += _balances[msg.sender].unlocked[_usdc] * _price[_usdc];
+        totalValue += _balances[msg.sender].owned[NATIVE_ETH] * _price[NATIVE_ETH];
+        // totalValue += _balances[msg.sender].owned[_usdc] * _price[_usdc];
     }
 
     function repay(address usdc, uint256 amount) external override {}
 
     function withdraw(address token, uint256 amount) external override updateBalance(token, -int256(amount)) {
+        require(_balances[msg.sender].owned[token] >= amount);
+
         if (token == NATIVE_ETH) {
             (bool res,) = msg.sender.call{value: amount}("");
             require(res);
