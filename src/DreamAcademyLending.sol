@@ -24,7 +24,7 @@ contract DreamAcademyLending is ILending {
     address internal _usdc;
 
     address constant NATIVE_ETH = address(0);
-    uint256 constant OC_RATE = 200;
+    uint256 constant OC_RATE = 175;
     mapping(address => uint256) internal _price;
 
     struct Collateral {
