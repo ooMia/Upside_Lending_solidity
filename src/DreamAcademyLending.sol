@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.26;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IVault} from "./Vault.sol";
 
 interface IPriceOracle {
     function getPrice(address token) external view returns (uint256);
@@ -11,16 +12,13 @@ interface IPriceOracle {
 
 interface ILending {
     function initializeLendingProtocol(address usdc) external payable;
-    function deposit(address token, uint256 amount) external payable;
     function borrow(address token, uint256 amount) external;
     function repay(address token, uint256 amount) external;
-    function withdraw(address token, uint256 amount) external;
-    function getAccruedSupplyAmount(address token) external view returns (uint256);
     function liquidate(address borrower, address token, uint256 amount) external;
+    function getAccruedSupplyAmount(address token) external view returns (uint256);
 }
-/// 1 block 당 12sec 고정
 
-contract DreamAcademyLending is ILending {
+contract DreamAcademyLending is ILending, IVault {
     IPriceOracle internal _oracle;
     address internal _usdc;
 
@@ -60,7 +58,7 @@ contract DreamAcademyLending is ILending {
 
     function initializeLendingProtocol(address usdc) external payable override {
         (bool res,) =
-            address(this).call{value: msg.value}(abi.encodeWithSelector(ILending.deposit.selector, usdc, msg.value));
+            address(this).call{value: msg.value}(abi.encodeWithSelector(IVault.deposit.selector, usdc, msg.value));
         res = res && ERC20(usdc).transferFrom(msg.sender, address(this), msg.value);
         require(res);
     }
