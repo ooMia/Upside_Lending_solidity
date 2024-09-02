@@ -22,7 +22,6 @@ node_modules/
 .gitattributes
 .pnp.cjs
 package-lock.json
-package.json
 yarn.lock
 .pnp.loader.mjs
 install-state.gz
