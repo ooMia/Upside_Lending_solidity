@@ -3,7 +3,8 @@ pragma solidity ^0.8.26;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {IVault} from "./Vault.sol";
+import {Vault} from "./Vault.sol";
+import {PriceManager} from "./PriceManager.sol";
 
 interface IPriceOracle {
     function getPrice(address token) external view returns (uint256);
@@ -15,10 +16,9 @@ interface ILending {
     function borrow(address token, uint256 amount) external;
     function repay(address token, uint256 amount) external;
     function liquidate(address borrower, address token, uint256 amount) external;
-    function getAccruedSupplyAmount(address token) external view returns (uint256);
 }
 
-contract DreamAcademyLending is ILending, IVault {
+contract DreamAcademyLending is Vault, PriceManager, ILending {
     IPriceOracle internal _oracle;
     address internal _usdc;
 
@@ -58,7 +58,7 @@ contract DreamAcademyLending is ILending, IVault {
 
     function initializeLendingProtocol(address usdc) external payable override {
         (bool res,) =
-            address(this).call{value: msg.value}(abi.encodeWithSelector(IVault.deposit.selector, usdc, msg.value));
+            address(this).call{value: msg.value}(abi.encodeWithSelector(Vault.deposit.selector, usdc, msg.value));
         res = res && ERC20(usdc).transferFrom(msg.sender, address(this), msg.value);
         require(res);
     }
