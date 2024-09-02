@@ -4,5 +4,16 @@
   "devDependencies": {
     "prettier": "^3.3.3",
     "prettier-plugin-solidity": "^1.4.1"
+  },
+  "scripts": {
+    "install": "yarn install --ignore-scripts && forge install && forge update && yarn run remapping ",
+    "test": "npm run format && forge coverage --ir-minimum",
+    "format": "yarn compile && prettier --write . && forge fmt",
+    "build": "forge build",
+    "compile": "forge compile",
+    "remapping": "forge remappings > remappings.txt"
+  },
+  "engines": {
+    "node": ">=22.6.0"
   }
 }

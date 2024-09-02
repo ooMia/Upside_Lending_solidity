@@ -13,3 +13,6 @@ upside = "https://${UPSIDE_RPC_URL}"
 # https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 # https://book.getfoundry.sh/config/
 # https://github.com/juanfranblanco/vscode-solidity?tab=readme-ov-file
+
+[fmt]
+sort_imports = true

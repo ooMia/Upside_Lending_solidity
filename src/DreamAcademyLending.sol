@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {PriceManager} from "./PriceManager.sol";
+import {Vault} from "./Vault.sol";
+
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {Vault} from "./Vault.sol";
-import {PriceManager} from "./PriceManager.sol";
 
 interface IPriceOracle {
     function getPrice(address token) external view returns (uint256);
@@ -18,7 +20,7 @@ interface ILending {
     function liquidate(address borrower, address token, uint256 amount) external;
 }
 
-contract DreamAcademyLending is Vault, PriceManager, ILending {
+contract DreamAcademyLending is Vault, PriceManager, ILending, Initializable {
     IPriceOracle internal _oracle;
     address internal _usdc;
 
@@ -56,7 +58,7 @@ contract DreamAcademyLending is Vault, PriceManager, ILending {
         _usdc = usdc;
     }
 
-    function initializeLendingProtocol(address usdc) external payable override {
+    function initializeLendingProtocol(address usdc) external payable override initializer {
         (bool res,) =
             address(this).call{value: msg.value}(abi.encodeWithSelector(Vault.deposit.selector, usdc, msg.value));
         res = res && ERC20(usdc).transferFrom(msg.sender, address(this), msg.value);
