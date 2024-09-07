@@ -630,7 +630,7 @@ contract Testx is Test {
             (bool success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user3: liquiate of user2's unhealthy 500 USDC loan among 2000 should succeed");
         }
         vm.stopPrank();
     }
@@ -701,11 +701,11 @@ contract Testx is Test {
             (bool success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user3: liquidate of user2's unhealthy 500 USDC loan among 2000 should succeed");
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 100 ether)
             );
-            assertFalse(success);
+            assertFalse(success, "user3: liquidate of user2's healthy 100 USDC loan among 1500 should fail");
         }
         vm.stopPrank();
     }
@@ -777,7 +777,7 @@ contract Testx is Test {
             (bool success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.liquidate.selector, user2, address(usdc), 500 ether)
             );
-            assertFalse(success);
+            assertFalse(success, "user3: liquidate of user2's 500 USDC loan among 2000 should fail");
         }
         vm.stopPrank();
     }

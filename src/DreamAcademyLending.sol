@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "forge-std/Test.sol";
 
@@ -34,8 +35,9 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
     // 모든 계산은 calculator에 위임
 
     uint256 constant COLLATERAL_RATE = 100;
-    uint256 constant LIQUIDATION_RATE = 66;
     uint256 constant LOCKUP_RATE = 75;
+    uint256 constant LIQUIDATION_PRICE_LIMIT = 66;
+    uint256 constant LIQUIDATION_RATE_PER_ONCE = 25;
 
     // immutable
     // struct TokenSnapshot {
@@ -66,8 +68,37 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
         return getTotalValue(_users[msg.sender].loan);
     }
 
+    function getTotalLoanAmountOf(address borrower) internal view returns (uint256 res) {
+        TokenSnapshot[] storage loans = _users[borrower].loan;
+        for (uint256 i = 0; i < loans.length; ++i) {
+            res += loans[i].amount;
+        }
+    }
+
+    function getTotalLoanValueOf(address borrower) internal view returns (uint256) {
+        return getTotalValue(_users[borrower].loan);
+    }
+
     function getUserTotalCollateralValue() internal view returns (uint256) {
         return getTotalValue(_users[msg.sender].collateral);
+    }
+
+    function getPreviousCollateralValueOf(address borrower) internal view returns (uint256 res) {
+        TokenSnapshot[] storage collaterals = _users[borrower].collateral;
+        for (uint256 i = 0; i < collaterals.length; ++i) {
+            res += collaterals[i].value;
+        }
+    }
+
+    function getTotalCollateralValueOf(address borrower) public view returns (uint256 res) {
+        return getTotalValue(_users[borrower].collateral);
+    }
+
+    function getUserPreviousCollateralValue() internal view returns (uint256 res) {
+        TokenSnapshot[] storage collaterals = _users[msg.sender].collateral;
+        for (uint256 i = 0; i < collaterals.length; ++i) {
+            res += collaterals[i].value;
+        }
     }
 
     function getTotalValue(TokenSnapshot[] storage snapshots) internal view returns (uint256 res) {
@@ -80,8 +111,16 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
         return getUserTotalSupplyValue() - getUserTotalLoanValue() - getUserTotalCollateralValue();
     }
 
+    function getRemainingValueOf(address borrower) internal view returns (uint256) {
+        return getTotalSupplyValueOf(borrower) - getTotalLoanValueOf(borrower) - getTotalCollateralValueOf(borrower);
+    }
+
+    function getTotalSupplyValueOf(address borrower) internal view returns (uint256) {
+        return getTotalValue(_users[borrower].vault);
+    }
+
     function getUserWithdrawableValue() internal view returns (uint256) {
-        return getUserTotalSupplyValue() - getUserTotalLoanValue() / LOCKUP_RATE * 100;
+        return (getUserTotalSupplyValue() - getUserTotalLoanValue()) / LOCKUP_RATE * 100;
     }
 
     /// @dev Initialize the lending protocol
@@ -179,17 +218,25 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
         );
 
         _users[msg.sender].loan.push(createTokenSnapshot(token, amount));
-        _users[msg.sender].collateral.push(createTokenSnapshot(token, getCollateralAmount(amount)));
+        _users[msg.sender].collateral.push(
+            TokenSnapshot({
+                blockNumber: block.number,
+                token: _ETH,
+                amount: getValue(token, getCollateralAmount(amount)) / getPrice(_ETH),
+                value: getValue(token, getCollateralAmount(amount))
+            })
+        );
 
         if (token != _ETH) {
             ERC20(token).transfer(msg.sender, amount);
         } else {
             callWithValueMustSuccess(msg.sender, amount, "");
         }
+        consoleStatus();
     }
 
     function getCollateralAmount(uint256 amount) internal pure returns (uint256) {
-        return amount;
+        return amount * COLLATERAL_RATE / 100;
     }
 
     function repay(address token, uint256 amount)
@@ -241,17 +288,93 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
         ERC20(token).transferFrom(msg.sender, address(this), amount);
     }
 
+    function isCollateralHealthy(address borrower) internal view returns (bool) {
+        uint256 prev = getPreviousCollateralValueOf(borrower);
+        console.log("prev: %d", prev);
+        // console.log("curr_col: %d", getTotalCollateralValueOf(borrower));
+        uint256 curr = getTotalCollateralValueOf(borrower);
+        console.log("curr: %d", curr);
+        return prev * LIQUIDATION_PRICE_LIMIT > curr * 100;
+        // && getRemainingValueOf(borrower) >= getTotalLoanValueOf(borrower);
+    }
+
     function liquidate(address borrower, address token, uint256 amount)
         external
         override
         nonReentrant
         emitEvent(EventType.LIQUIDATE, token, amount)
     {
-        // TODO implement the liquidate function
-        // 일단 무조건 실패하도록 구현
-        if (borrower != address(0)) {
-            revert("liquidate failed");
+        if (getTotalLoanAmountOf(borrower) > 100) {
+            require(
+                amount * 100 <= getTotalLoanAmountOf(borrower) * LIQUIDATION_RATE_PER_ONCE, "liquidate: amount too high"
+            );
         }
+        require(
+            getValue(token, amount) <= getTotalCollateralValueOf(borrower), "liquidate: not enough collateral value"
+        );
+        console.log("amount: %d", amount);
+
+        require(!isCollateralHealthy(borrower), "liquidate: collateral is healthy");
+        revert(); // TODO 중단
+
+        // 1. 사용자의 deposit이 반영되어야 함
+        // 2. usdc 가격 폭락 시, collateral은 다시 건강해질 수 있음
+        // 3. 적절한 liquidate 이후, collateral이 건강해지면 liquidate 불가능
+
+        // console.log("rem_value: %d", getRemainingValueOf(borrower));
+        // console.log("req_value: %d", getValue(token, amount));
+
+        //   user total supply value: 0 0
+        //   user total loan value: 0 0
+        //   user remaining value: 0 0
+        //   amount: 500000000000000000000
+        //   amount: 500000000000000000000
+        //   prev: 2000000000000000000000000000000000000000
+        //   curr: 1320000000000000000000000000000000000000
+        //   rem_value: 1320000000000000000000000000000000000000
+        //   req_value: 500000000000000000000000000000000000000
+
+        //   user total supply value: 0 0
+        //   user total loan value: 0 0
+        //   user remaining value: 0 0
+        //   amount: 500000000000000000000
+        //   amount: 500000000000000000000
+        //   prev: 2000000000000000000000000000000000000000
+        //   curr: 1320000000000000000000000000000000000000
+        //   rem_value: 1320000000000000000000000000000000000000
+        //   req_value: 500000000000000000000000000000000000000
+        // should succeed
+
+        // TODO may need to modify the condition
+        // require(
+        //     getTotalSupplyValueOf(borrower) - getRemainingValueOf(borrower) < getValue(token, amount),
+        //     "liquidate: owner has enough value"
+        // );
+        // require(getRemainingValueOf(borrower) <= getTotalLoanValueOf(borrower), "liquidate: not liquidatable");
+
+        uint256 presentValue = getValue(token, amount);
+
+        {
+            TokenSnapshot[] storage loans = _users[borrower].loan;
+            uint256 pv = presentValue;
+            while (loans.length > 0 && pv > 0) {
+                TokenSnapshot storage loan = loans[loans.length - 1];
+                uint256 loanValue = getValue(loan);
+                if (loanValue <= pv) {
+                    pv -= loanValue;
+                    loans.pop();
+                } else {
+                    loan.value -= pv;
+                    pv = 0;
+                    loan.amount = loan.value / getPrice(loan.token);
+                }
+            }
+        }
+
+        // consoleStatus();
+
+        // ERC20(token).transferFrom(msg.sender, address(this), amount);
+        // callWithValueMustSuccess(msg.sender, getValue(token, amount) / getPrice(_ETH), "");
     }
 
     function getAccruedSupplyAmount(address token) external view returns (uint256) {
