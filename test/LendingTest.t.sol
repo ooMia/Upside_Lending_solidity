@@ -58,6 +58,14 @@ contract Testx is Test {
 
         dreamOracle.setPrice(address(0x0), 1339 ether);
         dreamOracle.setPrice(address(usdc), 1 ether);
+
+        vm.label(user1, "user1");
+        vm.label(user2, "user2");
+        vm.label(user3, "user3");
+        vm.label(user4, "user4");
+        vm.label(address(lending), "lending");
+        vm.label(address(usdc), "usdc");
+        vm.label(address(dreamOracle), "dreamOracle");
     }
 
     function testDepositEtherWithoutTxValueFails() external {
