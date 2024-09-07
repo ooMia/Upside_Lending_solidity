@@ -35,6 +35,7 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
     struct Value {
         address token;
         uint256 amount;
+        uint256 value;
         uint256 blockNumber;
     }
 
@@ -67,11 +68,28 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         } else {
             transferFrom(msg.sender, _THIS, amount);
         }
-        _USERS[msg.sender].collaterals.push(Value(token, amount, block.number));
+        _USERS[msg.sender].collaterals.push(createValue(token, amount));
     }
 
     function withdraw(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.WITHDRAW) {
-        // TODO implement
+        if (token == _ETH) {
+            transferETH(msg.sender, amount);
+        } else {
+            transfer(msg.sender, amount, token);
+        }
+        uint256 given = getPrice(token) * amount;
+        Value[] storage cols = _USERS[msg.sender].collaterals;
+        for (uint256 i = 0; i < cols.length && given > 0; ++i) {
+            Value storage v = cols[i];
+            uint256 accrued = getAccruedValue(v);
+            if (accrued > given) {
+                v.amount -= given / getPrice(v.token);
+                given = 0;
+            } else {
+                given -= accrued;
+                cols.pop();
+            }
+        }
     }
 
     function borrow(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.BORROW) {
@@ -110,7 +128,7 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         return sumValues(_USERS[user].collaterals);
     }
 
-    function getAccruedValue(Value storage v) internal view returns (uint256) {
+    function getAccruedValue(Value memory v) internal view returns (uint256) {
         // TODO implement interest rate
         return v.amount * getPrice(v.token) * (1 + block.number - v.blockNumber);
     }
@@ -121,7 +139,27 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         }
     }
 
-    // function createValue(address token, uint256 amount) internal view returns (Value memory) {
-    //     return Value(token, amount, block.number);
+    function createValue(address token, uint256 amount) internal view returns (Value memory) {
+        return Value(token, amount, amount * getPrice(token), block.number);
+    }
+
+    // function popFrom(Value[] storage values) internal returns (Value memory res) {
+    //     res = values[values.length - 1];
+    //     values.pop();
+    // }
+
+    // function subUntil(Value[] storage values, Value memory sub) internal returns (uint256 left) {
+    //     left = getAccruedValue(sub);
+    //     while (values.length > 0 && left > 0) {
+    //         Value storage v = values[values.length - 1];
+    //         uint256 accrued = getAccruedValue(v);
+    //         if (accrued > left) {
+    //             v.amount -= left / getPrice(v.token);
+    //             left = 0;
+    //         } else {
+    //             left -= accrued;
+    //             popFrom(values);
+    //         }
+    //     }
     // }
 }

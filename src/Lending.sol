@@ -41,7 +41,7 @@ abstract contract _Lending {
         uint256 preThisBalanceValue = getTotalBalanceValueOf(_THIS);
         uint256 preOpLoan = getTotalBorrowedValue(user);
         uint256 preOpCollateral = getTotalCollateralValue(user);
-        uint256 preLTV = getLTV1e36(user);
+        uint256 preLTV = getLTV1e18(user);
 
         if (op == Operation.DEPOSIT) {
             // LTV < LT 조건 불필요
@@ -60,7 +60,7 @@ abstract contract _Lending {
         uint256 postThisBalance = getTotalBalanceValueOf(_THIS);
         uint256 postOpLoan = getTotalBorrowedValue(user);
         uint256 postOpCollateral = getTotalCollateralValue(user);
-        uint256 postLTV = getLTV1e36(user);
+        uint256 postLTV = getLTV1e18(user);
 
         if (op == Operation.DEPOSIT) {
             // require(preUserBalanceValue > postUserBalance, "identity|DEPOSIT: Total value of user balance not decreased");
@@ -73,7 +73,7 @@ abstract contract _Lending {
             // require(preThisBalanceValue > postThisBalance,"identity|WITHDRAW: Total value of contract balance not decreased");
             require(preOpLoan == postOpLoan, "identity|WITHDRAW: Loan changed");
             require(preOpCollateral > postOpCollateral, "identity|WITHDRAW: Collateral not decreased");
-            require(preLTV < postLTV, "identity|WITHDRAW: LTV not increased");
+            require(preLTV < postLTV || postOpLoan == 0, "identity|WITHDRAW: LTV not increased");
             require(isLoanHealthy(user), "identity|WITHDRAW: Loan become unhealthy"); // optimistic
         } else if (op == Operation.BORROW) {
             // require(preUserBalanceValue < postUserBalance, "identity|BORROW: Total value of user balance not increased");
@@ -96,7 +96,7 @@ abstract contract _Lending {
             // require(preThisBalanceValue <= postThisBalance, "identity|LIQUIDATE: Total value of contract balance decreased");
             require(preOpLoan > postOpLoan, "identity|LIQUIDATE: Loan not decreased");
             require(preOpCollateral > postOpCollateral, "identity|LIQUIDATE: Collateral not decreased");
-            require(preLTV == 0 || preLTV > postLTV, "identity|LIQUIDATE: LTV not decreased");
+            require(preLTV > postLTV || preLTV == 0, "identity|LIQUIDATE: LTV not decreased");
         }
     }
 
@@ -123,9 +123,9 @@ abstract contract _Lending {
         );
     }
 
-    function getLTV1e36(address user) internal view returns (uint256 res) {
+    function getLTV1e18(address user) internal view returns (uint256 res) {
         res = getTotalCollateralValue(user);
-        return res > 0 ? (getTotalBorrowedValue(user) * 100 * 1e36) / res : 0;
+        return res > 0 ? (getTotalBorrowedValue(user) * 100 * 1e18) / res : 0;
     }
 
     // 유저의 대출액을 조회하는 함수
@@ -146,7 +146,7 @@ abstract contract _Lending {
 
     /// @dev LTV < LT 조건을 만족하는지 확인하는 함수
     function isLoanHealthy(address user) internal view returns (bool) {
-        return getLTV1e36(user) < LT * 1e36;
+        return getLTV1e18(user) < LT * 1e18;
     }
 
     function transferFrom(address from, address to, uint256 amount) internal {
@@ -154,14 +154,23 @@ abstract contract _Lending {
     }
 
     function transferFrom(address from, address to, uint256 amount, address pair) internal {
+        require(amount > 0, "transferFrom: amount is zero");
         pair.functionCall(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount));
     }
 
     function transfer(address to, uint256 amount) internal {
-        _PAIR.functionCall(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        transfer(to, amount, _PAIR);
+    }
+
+    function transfer(address to, uint256 amount, address pair) internal {
+        require(amount > 0, "transfer: amount is zero");
+        pair.functionCall(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
     }
 
     function transferETH(address to, uint256 amount) internal {
-        to.functionCallWithValue(abi.encode(""), amount);
+        require(amount > 0, "transferETH: amount is zero");
+        // to.functionCallWithValue("", amount);
+        (bool res,) = to.call{value: amount}("");
+        require(res, "transferETH: transfer failed");
     }
 }
