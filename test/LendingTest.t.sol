@@ -51,11 +51,10 @@ contract Testx is Test {
         vm.deal(address(this), 10000000 ether);
         usdc = new CUSDC();
 
-        // TDOO 아래 setUp이 정상작동 할 수 있도록 여러분의 Lending Contract를 수정하세요.
         lending = new DreamAcademyLending(IPriceOracle(address(dreamOracle)), address(usdc));
         usdc.approve(address(lending), type(uint256).max);
 
-        lending.initializeLendingProtocol{value: 1}(address(usdc)); // set reserve ^__^
+        lending.initializeLendingProtocol{value: 1}(address(usdc));
 
         dreamOracle.setPrice(address(0x0), 1339 ether);
         dreamOracle.setPrice(address(usdc), 1 ether);
