@@ -197,9 +197,9 @@ contract Testx is Test {
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
             );
-            assertFalse(success);
+            assertFalse(success, "user2: borrow 1000 USDC with insufficient collateral should fail");
 
-            assertTrue(usdc.balanceOf(user2) == 1000 ether);
+            assertTrue(usdc.balanceOf(user2) == 1000 ether, "user2 should have 1000 USDC");
         }
         vm.stopPrank();
     }
@@ -237,25 +237,25 @@ contract Testx is Test {
             (bool success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user2: borrow 1000 USDC #1");
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user2: borrow 1000 USDC #2");
 
-            assertTrue(usdc.balanceOf(user2) == 2000 ether);
+            assertTrue(usdc.balanceOf(user2) == 2000 ether, "user2 should have 2000 USDC");
 
             usdc.approve(address(lending), type(uint256).max);
 
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.repay.selector, address(usdc), 1000 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user2: repay 1000 USDC at the same block and price");
 
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user2: borrow 1000 USDC after repayment at the same block and price");
         }
         vm.stopPrank();
     }
@@ -291,12 +291,12 @@ contract Testx is Test {
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 1000 ether)
             );
-            assertFalse(success);
+            assertFalse(success, "user2: borrow 1000 USDC with insufficient collateral should fail");
 
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.borrow.selector, address(usdc), 999 ether)
             );
-            assertTrue(success);
+            assertTrue(success, "user2: borrow 999 USDC should succeed");
         }
         vm.stopPrank();
     }
