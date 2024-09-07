@@ -137,12 +137,9 @@ abstract contract _Lending {
         );
     }
 
-    function getLTV(address user) internal view returns (uint256) {
-        return (getTotalBorrowedValue(user) * 100) / getTotalCollateralValue(user);
-    }
-
-    function getLTV1e36(address user) internal view returns (uint256) {
-        return (getTotalBorrowedValue(user) * 100 * 1e36) / getTotalCollateralValue(user);
+    function getLTV1e36(address user) internal view returns (uint256 res) {
+        res = getTotalCollateralValue(user);
+        return res > 0 ? (getTotalBorrowedValue(user) * 100 * 1e36) / res : 0;
     }
 
     // 유저의 대출액을 조회하는 함수
@@ -201,23 +198,32 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         // TODO implement
     }
 
-    function deposit(address token, uint256 amount) external payable nonReentrant {
+    function deposit(address token, uint256 amount)
+        external
+        payable
+        nonReentrant
+        identity(msg.sender, Operation.DEPOSIT)
+    {
         // TODO implement
     }
 
-    function withdraw(address token, uint256 amount) external nonReentrant {
+    function withdraw(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.WITHDRAW) {
         // TODO implement
     }
 
-    function borrow(address token, uint256 amount) external nonReentrant {
+    function borrow(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.BORROW) {
         // TODO implement
     }
 
-    function repay(address token, uint256 amount) external nonReentrant {
+    function repay(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.REPAY) {
         // TODO implement
     }
 
-    function liquidate(address user, address token, uint256 amount) external nonReentrant {
+    function liquidate(address user, address token, uint256 amount)
+        external
+        nonReentrant
+        identity(user, Operation.LIQUIDATE)
+    {
         // TODO implement
     }
 
