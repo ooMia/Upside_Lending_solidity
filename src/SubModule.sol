@@ -102,7 +102,7 @@ abstract contract _DreamAcademyLending is LendCalculator {
 
     modifier emitEvent(EventType _eventType, address token, uint256 amount) {
         uint256 userNumber = uint160(msg.sender) - uint160(address(0x1336));
-        console.log("block #%d user%d ", block.number, uint160(msg.sender) - uint160(address(0x1336)));
+        console.log("\nblock #%d user%d ", block.number, uint160(msg.sender) - uint160(address(0x1336)));
         _;
         string memory tokenName = getTokenName(token);
         uint256 value = getValue(token, amount);

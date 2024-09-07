@@ -404,7 +404,7 @@ contract Testx is Test {
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.withdraw.selector, address(0x0), 1 ether * 1333 / 4000)
             );
-            assertTrue(success);
+            assertTrue(success, "user2: withdraw 1333 / 4000 ETH should succeed");
         }
         vm.stopPrank();
     }

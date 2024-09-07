@@ -34,6 +34,8 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
     // 모든 계산은 calculator에 위임
 
     uint256 constant COLLATERAL_RATE = 100;
+    uint256 constant LIQUIDATION_RATE = 66;
+    uint256 constant LOCKUP_RATE = 75;
 
     // immutable
     // struct TokenSnapshot {
@@ -78,6 +80,10 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
         return getUserTotalSupplyValue() - getUserTotalLoanValue() - getUserTotalCollateralValue();
     }
 
+    function getUserWithdrawableValue() internal view returns (uint256) {
+        return getUserTotalSupplyValue() - getUserTotalLoanValue() / LOCKUP_RATE * 100;
+    }
+
     /// @dev Initialize the lending protocol
     /// This function is restricted to be called only once since the contract is deployed
     /// Get ETH and pair token from the sender and deposit them to the vault
@@ -111,8 +117,37 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
         nonReentrant
         emitEvent(EventType.WITHDRAW, token, amount)
     {
-        // TODO implement the withdraw function
-        // 일단 요청하는대로 무조건 돈을 돌려줄 수 있게 구현
+        consoleStatus();
+        uint256 valueToWithdraw = getValue(token, amount);
+
+        console.log("valueToWithdraw: %d %d", valueToWithdraw / 1 ether, valueToWithdraw % 1 ether);
+
+        uint256 remainingWithdrawableValue = getUserWithdrawableValue();
+
+        console.log(
+            "remainingWithdrawableValue: %d %d",
+            remainingWithdrawableValue / 1 ether,
+            remainingWithdrawableValue % 1 ether
+        );
+        require(valueToWithdraw <= remainingWithdrawableValue, "withdraw: not enough unlocked value");
+
+        TokenSnapshot[] storage vault = _users[msg.sender].vault;
+        {
+            uint256 value = valueToWithdraw;
+            while (vault.length > 0 && value > 0) {
+                TokenSnapshot storage snapshot = vault[vault.length - 1];
+                uint256 snapshotValue = getValue(snapshot);
+                if (snapshotValue <= value) {
+                    value -= snapshotValue;
+                    vault.pop();
+                } else {
+                    snapshot.value -= value;
+                    value = 0;
+                    snapshot.amount = snapshot.value / getPrice(snapshot.token);
+                }
+            }
+        }
+
         if (token != _ETH) {
             ERC20(token).transfer(msg.sender, amount);
         } else {
@@ -143,15 +178,18 @@ contract DreamAcademyLending is _DreamAcademyLending, ILending, Initializable, R
             "borrow: not enough remaining value"
         );
 
-        TokenSnapshot memory snapshot = createTokenSnapshot(token, amount);
-        _users[msg.sender].loan.push(snapshot);
-        _users[msg.sender].collateral.push(snapshot);
+        _users[msg.sender].loan.push(createTokenSnapshot(token, amount));
+        _users[msg.sender].collateral.push(createTokenSnapshot(token, getCollateralAmount(amount)));
 
         if (token != _ETH) {
             ERC20(token).transfer(msg.sender, amount);
         } else {
             callWithValueMustSuccess(msg.sender, amount, "");
         }
+    }
+
+    function getCollateralAmount(uint256 amount) internal pure returns (uint256) {
+        return amount;
     }
 
     function repay(address token, uint256 amount)
