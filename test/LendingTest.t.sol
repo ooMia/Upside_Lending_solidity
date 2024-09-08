@@ -59,14 +59,14 @@ contract Testx is Test {
         dreamOracle.setPrice(address(0x0), 1339 ether);
         dreamOracle.setPrice(address(usdc), 1 ether);
 
-        vm.label(user1, "user1");
-        vm.label(user2, "user2");
-        vm.label(user3, "user3");
-        vm.label(user4, "user4");
+        // vm.label(user1, "user1");
+        // vm.label(user2, "user2");
+        // vm.label(user3, "user3");
+        // vm.label(user4, "user4");
 
-        vm.label(address(lending), "lending");
-        vm.label(address(usdc), "usdc");
-        vm.label(address(dreamOracle), "oracle");
+        // vm.label(address(lending), "lending");
+        // vm.label(address(usdc), "usdc");
+        // vm.label(address(dreamOracle), "oracle");
     }
 
     function testDepositEtherWithoutTxValueFails() external {
@@ -517,14 +517,13 @@ contract Testx is Test {
             (success,) = address(lending).call(
                 abi.encodeWithSelector(DreamAcademyLending.withdraw.selector, address(0x0), 1 ether)
             );
-            assertFalse(success, "#1");
+            assertFalse(success);
         }
         vm.stopPrank();
 
         vm.roll(block.number + (86400 * 1000 / 12));
         vm.prank(user3);
-        console.log(lending.getAccruedSupplyAmount(address(usdc)) / 1e18);
-        assertTrue(lending.getAccruedSupplyAmount(address(usdc)) / 1e18 == 30000792, "#1: 30000792 ether");
+        assertTrue((lending.getAccruedSupplyAmount(address(usdc)) / 1e18) == 30000792, "#1: 30000792 ether");
 
         // other lender deposits USDC to our protocol.
         usdc.transfer(user4, 10000000 ether);
@@ -543,9 +542,10 @@ contract Testx is Test {
         vm.prank(user1);
         uint256 c = lending.getAccruedSupplyAmount(address(usdc));
 
-        assertEq((a + b + c) / 1e18 - 30000000 - 10000000 - 100000000, 6956);
-        assertEq(a / 1e18 - 30000000, 1547);
-        assertEq(b / 1e18 - 10000000, 251);
+        assertEq((a + b + c) / 1e18 - 30000000 - 10000000 - 100000000, 6956, "#2: 6956 ether");
+        assertEq(a / 1e18 - 30000000, 1547, "#3: 1547 ether");
+        assertEq(b / 1e18 - 10000000, 251, "#4: 251 ether");
+        // 100000000 > 5158
     }
 
     function testWithdrawFullUndilutedAfterDepositByOtherAccountSucceeds() external {
