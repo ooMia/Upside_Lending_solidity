@@ -44,7 +44,7 @@ abstract contract _Lending {
         // uint256 preThisBalanceValue = getTotalBalanceValueOf(_THIS);
         uint256 preOpLoan = getTotalBorrowedValue(user);
         uint256 preOpCollateral = getTotalCollateralValue(user);
-        uint256 preLTV = getLTV1e18(user);
+        uint256 preLTV = getLTV(user);
 
         if (op == Operation.DEPOSIT) {
             // LTV < LT 조건 불필요
@@ -63,17 +63,23 @@ abstract contract _Lending {
         // uint256 postThisBalance = getTotalBalanceValueOf(_THIS);
         uint256 postOpLoan = getTotalBorrowedValue(user);
         uint256 postOpCollateral = getTotalCollateralValue(user);
-        uint256 postLTV = getLTV1e18(user);
+        uint256 postLTV = getLTV(user);
 
         if (op == Operation.DEPOSIT) {
             // require(preUserBalanceValue > postUserBalance, "identity|DEPOSIT: Total value of user balance not decreased");
             // require(preThisBalanceValue < postThisBalance, "identity|DEPOSIT: Total value of contract balance not increased");
+            console.log("block#%d | user%d | DEPOSIT", block.number, getUserNumber());
+            consoleStatus(preLTV, postLTV, preOpLoan, postOpLoan, preOpCollateral, postOpCollateral);
+
             require(preOpLoan == postOpLoan, "identity|DEPOSIT: Loan changed");
             require(preOpCollateral < postOpCollateral, "identity|DEPOSIT: Collateral not increased");
             require(preLTV == 0 || preLTV > postLTV, "identity|DEPOSIT: LTV not decreased");
         } else if (op == Operation.WITHDRAW) {
             // require(preUserBalanceValue < postUserBalance, "identity|WITHDRAW: Total value of user balance not increased");
             // require(preThisBalanceValue > postThisBalance,"identity|WITHDRAW: Total value of contract balance not decreased");
+            console.log("block#%d | user%d | WITHDRAW", block.number, getUserNumber());
+            consoleStatus(preLTV, postLTV, preOpLoan, postOpLoan, preOpCollateral, postOpCollateral);
+
             require(preOpLoan == postOpLoan, "identity|WITHDRAW: Loan changed");
             require(preOpCollateral > postOpCollateral, "identity|WITHDRAW: Collateral not decreased");
             require(preLTV < postLTV || postOpLoan == 0, "identity|WITHDRAW: LTV not increased");
@@ -81,7 +87,9 @@ abstract contract _Lending {
         } else if (op == Operation.BORROW) {
             // require(preUserBalanceValue < postUserBalance, "identity|BORROW: Total value of user balance not increased");
             // require(preThisBalanceValue > postThisBalance, "identity|BORROW: Total value of contract balance not decreased");
-            console.log("user%d | BORROW: preLTV: %d, postLTV: %d", getUserNumber(), preLTV / 1e18, postLTV / 1e18);
+            console.log("block#%d | user%d | BORROW", block.number, getUserNumber());
+            consoleStatus(preLTV, postLTV, preOpLoan, postOpLoan, preOpCollateral, postOpCollateral);
+            require(postOpLoan * 2 <= postOpCollateral, "identity|BORROW: Over collateralization rate not satisfied");
             require(postLTV <= OC_RATE * 1e18, "identity|BORROW: OC RATE not satisfied");
             require(preOpLoan < postOpLoan, "identity|BORROW: Loan not increased");
             require(preOpCollateral == postOpCollateral, "identity|WITHDRAW: Collateral changed");
@@ -91,6 +99,9 @@ abstract contract _Lending {
             // LTV < LT 조건 불필요
             // require(preUserBalanceValue > postUserBalance, "identity|REPAY: Total value of user balance not decreased");
             // require(preThisBalanceValue < postThisBalance, "identity|REPAY: Total value of contract balance not increased");
+            console.log("block#%d | user%d | REPAY", block.number, getUserNumber());
+            consoleStatus(preLTV, postLTV, preOpLoan, postOpLoan, preOpCollateral, postOpCollateral);
+
             require(preOpLoan > postOpLoan, "identity|REPAY: Loan not decreased");
             require(preOpCollateral == postOpCollateral, "identity|REPAY: Collateral changed");
             require(preLTV == 0 || preLTV > postLTV, "identity|REPAY: LTV not decreased");
@@ -99,7 +110,9 @@ abstract contract _Lending {
             // user: msg.sender, balanceType: value
             // require(preUserBalanceValue >= postUserBalance, "identity|LIQUIDATE: Total value of user balance increased");
             // require(preThisBalanceValue <= postThisBalance, "identity|LIQUIDATE: Total value of contract balance decreased");
-            console.log("user%d | LIQUIDATE: preLTV: %d, postLTV: %d", getUserNumber(), preLTV / 1e18, postLTV / 1e18);
+            console.log("block#%d | user%d | LIQUIDATE", block.number, getUserNumber());
+            consoleStatus(preLTV, postLTV, preOpLoan, postOpLoan, preOpCollateral, postOpCollateral);
+
             require(preOpLoan > postOpLoan, "identity|LIQUIDATE: Loan not decreased");
             require(preOpCollateral > postOpCollateral, "identity|LIQUIDATE: Collateral not decreased");
             require(preLTV > postLTV || preLTV == 0, "identity|LIQUIDATE: LTV not decreased");
@@ -129,9 +142,18 @@ abstract contract _Lending {
         );
     }
 
+    function getLTV(address user) internal view returns (uint256 res) {
+        return getLTV1e18(user);
+    }
+
     function getLTV1e18(address user) internal view returns (uint256 res) {
         res = getTotalCollateralValue(user);
         return res > 0 ? (getTotalBorrowedValue(user) * 100 * 1e18) / res : 0;
+    }
+
+    function getLTV1e27(address user) internal view returns (uint256 res) {
+        res = getTotalCollateralValue(user);
+        return res > 0 ? (getTotalBorrowedValue(user) * 100 * 1e27) / res : 0;
     }
 
     // 유저의 대출액을 조회하는 함수
@@ -152,7 +174,7 @@ abstract contract _Lending {
 
     /// @dev LTV < LT 조건을 만족하는지 확인하는 함수
     function isLoanHealthy(address user) internal view returns (bool) {
-        return getLTV1e18(user) < LT * 1e18;
+        return getLTV(user) < LT * 1e18;
     }
 
     function transferFrom(address from, address to, uint256 amount) internal {
@@ -182,5 +204,23 @@ abstract contract _Lending {
 
     function getUserNumber() internal view returns (uint256) {
         return uint256(uint160(msg.sender) - uint160(address(0x1336)));
+    }
+
+    function consoleStatus(
+        uint256 preLTV,
+        uint256 postLTV,
+        uint256 preOpLoan,
+        uint256 postOpLoan,
+        uint256 preOpCollateral,
+        uint256 postOpCollateral
+    ) internal view {
+        uint256 decimal = 1e18;
+        uint256 decimal2 = 1e36;
+        console.log("\tpreLTV: %d %d", preLTV / decimal, preLTV % decimal);
+        console.log("\tpostLTV: %d %d", postLTV / decimal, postLTV % decimal);
+        console.log("\tpreOpLoan: %d %d", preOpLoan / decimal2, preOpLoan % decimal2);
+        console.log("\tpostOpLoan: %d %d", postOpLoan / decimal2, postOpLoan % decimal2);
+        console.log("\tpreOpCollateral: %d %d", preOpCollateral / decimal2, preOpCollateral % decimal2);
+        console.log("\tpostOpCollateral: %d %d", postOpCollateral / decimal2, postOpCollateral % decimal2);
     }
 }
