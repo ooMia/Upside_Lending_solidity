@@ -95,9 +95,8 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
     function repay(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.REPAY) {
         if (token == _ETH) {
             revert("repay|ETH: Not payable");
-        } else {
-            transferFrom(msg.sender, _THIS, amount, token);
         }
+        transferFrom(msg.sender, _THIS, amount, token);
         cancelOutStorage(_USERS[msg.sender].loans, getPrice(token) * amount);
     }
 
@@ -107,12 +106,18 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         nonReentrant
         identity(borrower, Operation.LIQUIDATE)
     {
-        transferFrom(msg.sender, _THIS, amount, token);
         if (token == _ETH) {
-            transferETH(msg.sender, amount);
-        } else {
-            transfer(msg.sender, amount, token);
+            revert("liquidate|ETH: Not payable");
         }
+        uint256 loanAmount = sumAmounts(_USERS[borrower].loans);
+        if (loanAmount > 100) {
+            require(amount * 100 <= loanAmount * 25, "liquidate|over 100: liquidation amount is over 25%");
+        }
+
+        transferFrom(msg.sender, _THIS, amount, token);
+        transfer(msg.sender, amount, token);
+
+        cancelOutStorage(_USERS[borrower].collaterals, getPrice(token) * amount);
         cancelOutStorage(_USERS[borrower].loans, getPrice(token) * amount);
     }
 
@@ -144,6 +149,12 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
     function sumValues(Value[] storage values) internal view returns (uint256 res) {
         for (uint256 i = 0; i < values.length; ++i) {
             res += getAccruedValue(values[i]);
+        }
+    }
+
+    function sumAmounts(Value[] storage values) internal view returns (uint256 res) {
+        for (uint256 i = 0; i < values.length; ++i) {
+            res += values[i].amount;
         }
     }
 

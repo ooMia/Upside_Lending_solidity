@@ -81,8 +81,7 @@ abstract contract _Lending {
         } else if (op == Operation.BORROW) {
             // require(preUserBalanceValue < postUserBalance, "identity|BORROW: Total value of user balance not increased");
             // require(preThisBalanceValue > postThisBalance, "identity|BORROW: Total value of contract balance not decreased");
-            console.log(preLTV / 1e18);
-            console.log(postLTV / 1e18);
+            console.log("user%d | BORROW: preLTV: %d, postLTV: %d", getUserNumber(), preLTV / 1e18, postLTV / 1e18);
             require(postLTV <= OC_RATE * 1e18, "identity|BORROW: OC RATE not satisfied");
             require(preOpLoan < postOpLoan, "identity|BORROW: Loan not increased");
             require(preOpCollateral == postOpCollateral, "identity|WITHDRAW: Collateral changed");
@@ -100,6 +99,7 @@ abstract contract _Lending {
             // user: msg.sender, balanceType: value
             // require(preUserBalanceValue >= postUserBalance, "identity|LIQUIDATE: Total value of user balance increased");
             // require(preThisBalanceValue <= postThisBalance, "identity|LIQUIDATE: Total value of contract balance decreased");
+            console.log("user%d | LIQUIDATE: preLTV: %d, postLTV: %d", getUserNumber(), preLTV / 1e18, postLTV / 1e18);
             require(preOpLoan > postOpLoan, "identity|LIQUIDATE: Loan not decreased");
             require(preOpCollateral > postOpCollateral, "identity|LIQUIDATE: Collateral not decreased");
             require(preLTV > postLTV || preLTV == 0, "identity|LIQUIDATE: LTV not decreased");
@@ -178,5 +178,9 @@ abstract contract _Lending {
         // to.functionCallWithValue("", amount);
         (bool res,) = to.call{value: amount}("");
         require(res, "transferETH: transfer failed");
+    }
+
+    function getUserNumber() internal view returns (uint256) {
+        return uint256(uint160(msg.sender) - uint160(address(0x1336)));
     }
 }
