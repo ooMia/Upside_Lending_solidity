@@ -54,7 +54,7 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
     }
 
     function getAccruedSupplyAmount(address token) external nonReentrant returns (uint256) {
-        // TODO implement
+        return sumValues(_USERS[msg.sender].collaterals);
     }
 
     function deposit(address token, uint256 amount)
@@ -143,7 +143,7 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
 
     function getAccruedValue(Value memory v) internal view returns (uint256) {
         // TODO implement interest rate
-        return v.amount * getPrice(v.token) * (1 + block.number - v.blockNumber);
+        return v.amount * getPrice(v.token) * (1 + (block.number - v.blockNumber) * 1 ether);
     }
 
     function sumValues(Value[] storage values) internal view returns (uint256 res) {
