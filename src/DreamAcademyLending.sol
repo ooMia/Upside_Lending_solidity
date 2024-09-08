@@ -63,9 +63,9 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         nonReentrant
         identity(msg.sender, Operation.DEPOSIT)
     {
-        require(amount > 0, "deposit: amount is zero");
         if (token == _ETH) {
-            require(msg.value >= amount, "deposit|ETH: msg.value < amount");
+            require(0 < amount, "deposit|ETH: amount not positive");
+            require(amount <= msg.value, "deposit|ETH: msg.value < amount");
         } else {
             transferFrom(msg.sender, _THIS, amount);
         }
