@@ -37,8 +37,8 @@ abstract contract _Lending {
     }
 
     modifier identity(address user, Operation op) {
-        uint256 preUserBalanceValue = getTotalBalanceValueOf(msg.sender);
-        uint256 preThisBalanceValue = getTotalBalanceValueOf(_THIS);
+        // uint256 preUserBalanceValue = getTotalBalanceValueOf(msg.sender);
+        // uint256 preThisBalanceValue = getTotalBalanceValueOf(_THIS);
         uint256 preOpLoan = getTotalBorrowedValue(user);
         uint256 preOpCollateral = getTotalCollateralValue(user);
         uint256 preLTV = getLTV1e18(user);
@@ -56,8 +56,8 @@ abstract contract _Lending {
             require(!isLoanHealthy(user), "identity|LIQUIDATE: Loan is healthy");
         }
         _;
-        uint256 postUserBalance = getTotalBalanceValueOf(msg.sender);
-        uint256 postThisBalance = getTotalBalanceValueOf(_THIS);
+        // uint256 postUserBalance = getTotalBalanceValueOf(msg.sender);
+        // uint256 postThisBalance = getTotalBalanceValueOf(_THIS);
         uint256 postOpLoan = getTotalBorrowedValue(user);
         uint256 postOpCollateral = getTotalCollateralValue(user);
         uint256 postLTV = getLTV1e18(user);

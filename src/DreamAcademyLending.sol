@@ -63,6 +63,7 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         nonReentrant
         identity(msg.sender, Operation.DEPOSIT)
     {
+        require(amount > 0, "deposit: amount is zero");
         if (token == _ETH) {
             require(msg.value >= amount, "deposit|ETH: msg.value < amount");
         } else {
@@ -92,15 +93,27 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
     }
 
     function repay(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.REPAY) {
-        // TODO implement
+        if (token == _ETH) {
+            revert("repay|ETH: Not payable");
+        } else {
+            transferFrom(msg.sender, _THIS, amount, token);
+        }
+        cancelOutStorage(_USERS[msg.sender].loans, getPrice(token) * amount);
     }
 
-    function liquidate(address user, address token, uint256 amount)
+    /// @dev 3rd party가 제안한 유형과 수량의 토큰을 받아 borrower의 담보를 처분하는 함수
+    function liquidate(address borrower, address token, uint256 amount)
         external
         nonReentrant
-        identity(user, Operation.LIQUIDATE)
+        identity(borrower, Operation.LIQUIDATE)
     {
-        // TODO implement
+        transferFrom(msg.sender, _THIS, amount, token);
+        if (token == _ETH) {
+            transferETH(msg.sender, amount);
+        } else {
+            transfer(msg.sender, amount, token);
+        }
+        cancelOutStorage(_USERS[borrower].loans, getPrice(token) * amount);
     }
 
     // 유저의 대출액을 조회하는 함수
