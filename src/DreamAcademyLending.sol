@@ -71,29 +71,24 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
         _USERS[msg.sender].collaterals.push(createValue(token, amount));
     }
 
+    /// @dev 예금을 인출하는 함수
     function withdraw(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.WITHDRAW) {
+        // use nonReentrant modifier or Check-Effects-Interactions pattern
         if (token == _ETH) {
             transferETH(msg.sender, amount);
         } else {
             transfer(msg.sender, amount, token);
         }
-        uint256 given = getPrice(token) * amount;
-        Value[] storage cols = _USERS[msg.sender].collaterals;
-        for (uint256 i = 0; i < cols.length && given > 0; ++i) {
-            Value storage v = cols[i];
-            uint256 accrued = getAccruedValue(v);
-            if (accrued > given) {
-                v.amount -= given / getPrice(v.token);
-                given = 0;
-            } else {
-                given -= accrued;
-                cols.pop();
-            }
-        }
+        cancelOutStorage(_USERS[msg.sender].collaterals, getPrice(token) * amount);
     }
 
     function borrow(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.BORROW) {
-        // TODO implement
+        if (token == _ETH) {
+            transferETH(msg.sender, amount);
+        } else {
+            transfer(msg.sender, amount, token);
+        }
+        _USERS[msg.sender].loans.push(createValue(token, amount));
     }
 
     function repay(address token, uint256 amount) external nonReentrant identity(msg.sender, Operation.REPAY) {
@@ -141,6 +136,20 @@ contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransien
 
     function createValue(address token, uint256 amount) internal view returns (Value memory) {
         return Value(token, amount, amount * getPrice(token), block.number);
+    }
+
+    function cancelOutStorage(Value[] storage targets, uint256 value) internal {
+        for (uint256 i = 0; i < targets.length && value > 0; ++i) {
+            Value storage t = targets[i];
+            uint256 accrued = getAccruedValue(t);
+            if (accrued > value) {
+                t.amount -= value / getPrice(t.token);
+                value = 0;
+            } else {
+                value -= accrued;
+                targets.pop();
+            }
+        }
     }
 
     // function popFrom(Value[] storage values) internal returns (Value memory res) {
