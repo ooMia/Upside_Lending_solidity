@@ -12,25 +12,25 @@ import {_Lending} from "./Lending.sol";
 import "forge-std/Test.sol";
 
 /// @dev Interface for the PriceOracle contract
-/// | Function Name | Sighash    | Function Signature        |
-/// | ------------- | ---------- | ------------------------- |
-/// | getPrice      | 41976e09   | getPrice(address)         |
-/// | setPrice      | 00e4768b   | setPrice(address,uint256) |
+/// | Function Signature        | Sighash    |
+/// | ------------------------- | ---------- |
+/// | getPrice(address)         | 41976e09   |
+/// | setPrice(address,uint256) | 00e4768b   |
 interface IPriceOracle {
     function getPrice(address token) external view returns (uint256);
     function setPrice(address token, uint256 price) external;
 }
 
 /// @dev Interface for the PriceOracle contract
-/// | Function Name             | Sighash    | Function Signature                 |
-/// | ------------------------- | ---------- | ---------------------------------- |
-/// | initializeLendingProtocol | 8f1e9779   | initializeLendingProtocol(address) |
-/// | deposit                   | 47e7ef24   | deposit(address,uint256)           |
-/// | withdraw                  | f3fef3a3   | withdraw(address,uint256)          |
-/// | borrow                    | 4b8a3529   | borrow(address,uint256)            |
-/// | repay                     | 22867d78   | repay(address,uint256)             |
-/// | liquidate                 | 26c01303   | liquidate(address,address,uint256) |
-/// | getAccruedSupplyAmount    | 53415e44   | getAccruedSupplyAmount(address)    |
+/// | Function Signature                 | Sighash    |
+/// | ---------------------------------- | ---------- |
+/// | initializeLendingProtocol(address) | 8f1e9779   |
+/// | deposit(address,uint256)           | 47e7ef24   |
+/// | withdraw(address,uint256)          | f3fef3a3   |
+/// | borrow(address,uint256)            | 4b8a3529   |
+/// | repay(address,uint256)             | 22867d78   |
+/// | liquidate(address,address,uint256) | 26c01303   |
+/// | getAccruedSupplyAmount(address)    | 53415e44   |
 contract DreamAcademyLending is _Lending, Initializable, ReentrancyGuardTransient {
     struct Value {
         address token;
