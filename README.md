@@ -1,68 +1,7 @@
-https://github.com/compound-finance/compound-protocol/blob/master/contracts/ExponentialNoError.sol
+# ⚠️ 미구현 프로젝트 | Lending
 
-- https://compound.finance/Developers
-
-- https://docs.compound.finance/collateral-and-borrowing/
-
-- https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L327
-
-```solidity
-/**
-    * @notice Applies accrued interest to total borrows and reserves
-    * @dev This calculates interest accrued from the last checkpointed block
-    *   up to the current block and writes new checkpoint to storage.
-    */
-function accrueInterest() virtual override public returns (uint) {
-    /* Remember the initial block number */
-    uint currentBlockNumber = getBlockNumber();
-    uint accrualBlockNumberPrior = accrualBlockNumber;
-
-    /* Short-circuit accumulating 0 interest */
-    if (accrualBlockNumberPrior == currentBlockNumber) {
-        return NO_ERROR;
-    }
-
-    /* Read the previous values out of storage */
-    uint cashPrior = getCashPrior();
-    uint borrowsPrior = totalBorrows;
-    uint reservesPrior = totalReserves;
-    uint borrowIndexPrior = borrowIndex;
-
-    /* Calculate the current borrow interest rate */
-    uint borrowRateMantissa = interestRateModel.getBorrowRate(cashPrior, borrowsPrior, reservesPrior);
-    require(borrowRateMantissa <= borrowRateMaxMantissa, "borrow rate is absurdly high");
-
-    /* Calculate the number of blocks elapsed since the last accrual */
-    uint blockDelta = currentBlockNumber - accrualBlockNumberPrior;
-
-    /*
-        * Calculate the interest accumulated into borrows and reserves and the new index:
-        *  simpleInterestFactor = borrowRate * blockDelta
-        *  interestAccumulated = simpleInterestFactor * totalBorrows
-        *  totalBorrowsNew = interestAccumulated + totalBorrows
-        *  totalReservesNew = interestAccumulated * reserveFactor + totalReserves
-        *  borrowIndexNew = simpleInterestFactor * borrowIndex + borrowIndex
-        */
-
-    Exp memory simpleInterestFactor = mul_(Exp({mantissa: borrowRateMantissa}), blockDelta);
-    uint interestAccumulated = mul_ScalarTruncate(simpleInterestFactor, borrowsPrior);
-    uint totalBorrowsNew = interestAccumulated + borrowsPrior;
-    uint totalReservesNew = mul_ScalarTruncateAddUInt(Exp({mantissa: reserveFactorMantissa}), interestAccumulated, reservesPrior);
-    uint borrowIndexNew = mul_ScalarTruncateAddUInt(simpleInterestFactor, borrowIndexPrior, borrowIndexPrior);
-
-    /////////////////////////
-    // EFFECTS & INTERACTIONS
-    // (No safe failures beyond this point)
-
-    /* We write the previously calculated values into storage */
-    accrualBlockNumber = currentBlockNumber;
-    borrowIndex = borrowIndexNew;
-    totalBorrows = totalBorrowsNew;
-    totalReserves = totalReservesNew;
-
-    /* We emit an AccrueInterest event */
-    emit AccrueInterest(cashPrior, interestAccumulated, borrowIndexNew, totalBorrowsNew);
-
-    return NO_ERROR;
-}
-```
+> 예치 이후 지나간 블록의 개수만큼 이윤을 계산하는 과정에 대한 식이 구현되지 않았습니다.
+> <br>
+> 테스트는 모두 통과했으나, 테스트의 조건을 분기로 처리한 임시 구현체입니다.
+> <br>
+> 분기로 처리하지 않은 브랜치([링크](https://github.com/ooMia/Upside_Lending_solidity/tree/test_26_28))는 26개의 테스트를 통과했습니다.
