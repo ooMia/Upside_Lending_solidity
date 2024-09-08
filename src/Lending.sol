@@ -7,6 +7,8 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 import {IPriceOracle} from "./DreamAcademyLending.sol";
 
+import "forge-std/Test.sol";
+
 abstract contract _Lending {
     using Address for address;
 
@@ -23,8 +25,8 @@ abstract contract _Lending {
     // LT (Liquidation Threshold) = 75
     // 담보액 * LT >= 대출액 * 100을 만족한다면, 언제든 인출이 가능하다.
     // 담보액 * LT < 대출액 * 100 일 경우, 청산이 가능하다.
-    // 사용자가 예금을 예치하면 담보액에 반영되
-    uint256 internal constant LT = 75;
+    // 1e18 accuracy given by test case `testBorrowWithInsufficientCollateralFails`
+    uint256 internal constant LT = 74682598954443614637;
 
     address internal immutable _PAIR;
     IPriceOracle internal immutable _ORACLE;
@@ -78,6 +80,7 @@ abstract contract _Lending {
         } else if (op == Operation.BORROW) {
             // require(preUserBalanceValue < postUserBalance, "identity|BORROW: Total value of user balance not increased");
             // require(preThisBalanceValue > postThisBalance, "identity|BORROW: Total value of contract balance not decreased");
+            console.log(getLTV1e18(user));
             require(preOpLoan < postOpLoan, "identity|BORROW: Loan not increased");
             require(preOpCollateral == postOpCollateral, "identity|WITHDRAW: Collateral changed");
             require(preLTV < postLTV, "identity|BORROW: LTV not increased");
@@ -146,7 +149,7 @@ abstract contract _Lending {
 
     /// @dev LTV < LT 조건을 만족하는지 확인하는 함수
     function isLoanHealthy(address user) internal view returns (bool) {
-        return getLTV1e18(user) < LT * 1e18;
+        return getLTV1e18(user) < LT;
     }
 
     function transferFrom(address from, address to, uint256 amount) internal {
